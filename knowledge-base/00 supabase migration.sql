@@ -1,81 +1,23 @@
 -- ============================================
--- Migration inicial — Copiloto P&C Nortion Capital
--- Rodar no SQL Editor do Supabase
+-- Ajuste: busca full-text em vez de embeddings/pgvector
+-- Rodar no SQL Editor do Supabase ANTES de inserir os documentos
 -- ============================================
 
--- Habilita a extensão pgvector (necessária para busca semântica)
-create extension if not exists vector;
+-- Remove a função antiga baseada em embeddings (não será mais usada)
+drop function if exists buscar_documento_similar(vector, text, int);
 
--- ============================================
--- Tabela: users
--- ============================================
-create table if not exists users (
-  id uuid primary key default gen_random_uuid(),
-  nome text not null,
-  papel text not null,
-  criado_em timestamptz default now()
-);
+-- Adiciona uma coluna de busca full-text (gerada automaticamente a partir de titulo + conteudo)
+alter table knowledge_documents
+  add column if not exists busca tsvector
+  generated always as (to_tsvector('portuguese', coalesce(titulo, '') || ' ' || coalesce(conteudo, ''))) stored;
 
--- Usuário fictício de P&C para acesso sem login (ver decisão de deploy)
-insert into users (nome, papel) values ('Ana - Especialista de Performance', 'P&C');
+-- Índice para acelerar a busca full-text
+create index if not exists knowledge_documents_busca_idx
+  on knowledge_documents using gin (busca);
 
--- ============================================
--- Tabela: conversations
--- ============================================
-create table if not exists conversations (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references users(id),
-  titulo text,
-  criado_em timestamptz default now(),
-  atualizado_em timestamptz default now()
-);
-
--- ============================================
--- Tabela: messages
--- ============================================
-create table if not exists messages (
-  id uuid primary key default gen_random_uuid(),
-  conversation_id uuid references conversations(id) on delete cascade,
-  autor text not null check (autor in ('usuario', 'agente')),
-  agente_responsavel text,
-  conteudo text not null,
-  criado_em timestamptz default now()
-);
-
--- ============================================
--- Tabela: conversation_summaries
--- ============================================
-create table if not exists conversation_summaries (
-  id uuid primary key default gen_random_uuid(),
-  conversation_id uuid references conversations(id) on delete cascade,
-  resumo text,
-  recomendacoes text[],
-  criado_em timestamptz default now()
-);
-
--- ============================================
--- Tabela: knowledge_documents (com suporte a embeddings)
--- ============================================
-create table if not exists knowledge_documents (
-  id uuid primary key default gen_random_uuid(),
-  categoria text not null check (categoria in ('politicas', 'metricas', 'compliance', 'onboarding')),
-  titulo text not null,
-  conteudo text not null,
-  embedding vector(1536), -- ajuste a dimensão conforme o modelo de embedding usado
-  criado_em timestamptz default now()
-);
-
--- Índice para busca vetorial eficiente (ivfflat)
-create index if not exists knowledge_documents_embedding_idx
-  on knowledge_documents
-  using ivfflat (embedding vector_cosine_ops)
-  with (lists = 100);
-
--- ============================================
--- Função de busca semântica (usada pela tool MCP buscarDocumento)
--- ============================================
-create or replace function buscar_documento_similar(
-  query_embedding vector(1536),
+-- Função de busca (usada pela tool MCP buscarDocumento)
+create or replace function buscar_documento_texto(
+  termo_busca text,
   categoria_filtro text default null,
   match_count int default 3
 )
@@ -84,7 +26,7 @@ returns table (
   titulo text,
   conteudo text,
   categoria text,
-  similarity float
+  relevancia float4
 )
 language sql stable
 as $$
@@ -93,9 +35,14 @@ as $$
     titulo,
     conteudo,
     categoria,
-    1 - (embedding <=> query_embedding) as similarity
+    ts_rank(busca, websearch_to_tsquery('portuguese', termo_busca)) as relevancia
   from knowledge_documents
-  where categoria_filtro is null or categoria = categoria_filtro
-  order by embedding <=> query_embedding
+  where
+    (categoria_filtro is null or categoria = categoria_filtro)
+    and busca @@ websearch_to_tsquery('portuguese', termo_busca)
+  order by relevancia desc
   limit match_count;
 $$;
+
+-- A coluna "embedding" (vector) pode ficar sem uso, ou remova se quiser deixar o schema mais limpo:
+-- alter table knowledge_documents drop column if exists embedding;
