@@ -101,11 +101,11 @@ export const classifyQuestion = async (
 
   const messages = [
     {
-      role: 'system',
+      role: 'system' as const,
       content: SYSTEM_PROMPT,
     },
     {
-      role: 'user',
+      role: 'user' as const,
       content: `Pergunta: ${finalQuestion}${historyText ? `\n\nHistórico:\n${historyText}` : ''}`,
     },
   ];
