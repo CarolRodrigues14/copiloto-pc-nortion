@@ -59,3 +59,14 @@ export const answerSintetizador = async (
     agente_responsavel: 'sintetizador',
   };
 };
+
+export const summarizeConversation = async (
+  conversationHistory: ConversationMessage[] = [],
+): Promise<{ resumo: string; recomendacoes: string[]; agente_responsavel: string }> => {
+  const answer = await answerSintetizador(conversationHistory)
+  return {
+    resumo: answer.resposta,
+    recomendacoes: [],
+    agente_responsavel: answer.agente_responsavel,
+  }
+}

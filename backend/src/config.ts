@@ -17,4 +17,5 @@ export const config = {
   supabaseUrl: getEnv('SUPABASE_URL'),
   supabaseServiceRoleKey: getEnv('SUPABASE_SERVICE_ROLE_KEY'),
   port: process.env.PORT ? Number(process.env.PORT) : 3000,
+  orchestratorUrl: process.env.ORCHESTRATOR_URL ?? 'http://localhost:3002',
 }

@@ -46,3 +46,99 @@ export async function getConversationById(conversationId: string): Promise<Conve
     messages: (messagesData as Message[]) ?? [],
   }
 }
+
+async function ensureMockUserExists(): Promise<void> {
+  const { data, error } = await supabase
+    .from('users')
+    .select('id')
+    .eq('id', MOCK_USER_ID)
+    .single()
+
+  if (error && error.code !== 'PGRST116') {
+    throw error
+  }
+
+  if (!data) {
+    const { error: insertError } = await supabase.from('users').insert([
+      {
+        id: MOCK_USER_ID,
+        nome: 'Usuário Mock',
+        papel: 'P&C',
+      },
+    ])
+
+    if (insertError) {
+      throw insertError
+    }
+  }
+}
+
+export async function createConversation(title: string): Promise<string> {
+  await ensureMockUserExists()
+
+  const { data, error } = await supabase
+    .from('conversations')
+    .insert([
+      {
+        user_id: MOCK_USER_ID,
+        titulo: title,
+      },
+    ])
+    .select('id')
+    .single()
+
+  if (error) {
+    throw error
+  }
+
+  return (data as { id: string }).id
+}
+
+export async function createMessage(
+  conversationId: string,
+  autor: 'usuario' | 'agente',
+  conteudo: string,
+  agenteResponsavel: string | null = null,
+): Promise<void> {
+  const { error } = await supabase.from('messages').insert([
+    {
+      conversation_id: conversationId,
+      autor,
+      conteudo,
+      agente_responsavel: agenteResponsavel,
+    },
+  ])
+
+  if (error) {
+    throw error
+  }
+}
+
+export async function updateConversationUpdatedAt(conversationId: string): Promise<void> {
+  const { error } = await supabase
+    .from('conversations')
+    .update({ atualizado_em: new Date().toISOString() })
+    .eq('id', conversationId)
+
+  if (error) {
+    throw error
+  }
+}
+
+export async function saveConversationSummary(
+  conversationId: string,
+  resumo: string,
+  recomendacoes: string[] = [],
+): Promise<void> {
+  const { error } = await supabase.from('conversation_summaries').insert([
+    {
+      conversation_id: conversationId,
+      resumo,
+      recomendacoes,
+    },
+  ])
+
+  if (error) {
+    throw error
+  }
+}
