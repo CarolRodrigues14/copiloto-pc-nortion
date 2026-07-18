@@ -1,10 +1,20 @@
 import express, { Request, Response, NextFunction } from 'express'
+import cors from 'cors'
 import { healthRouter } from './routes/health'
 import { conversationsRouter } from './routes/conversations'
 import { chatRouter } from './routes/chat'
 import { OrchestratorTimeoutError, OrchestratorRequestError } from './lib/orchestratorClient'
 
 const app = express()
+
+const corsOptions = {
+  origin: 'http://localhost:5173',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}
+
+app.use(cors(corsOptions))
+app.options('/chat', cors(corsOptions))
 app.use(express.json())
 
 app.use('/health', healthRouter)
