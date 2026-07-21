@@ -4,8 +4,11 @@ import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
-const SERVER_COMMAND = 'npx';
-const SERVER_ARGS = ['tsx', 'src/mcp/server.ts'];
+const isProduction = process.env.NODE_ENV === 'production';
+const SERVER_COMMAND = isProduction ? process.execPath : 'npx';
+const SERVER_ARGS = isProduction
+  ? [path.join(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..'), 'dist', 'mcp', 'server.js')]
+  : ['tsx', 'src/mcp/server.ts'];
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

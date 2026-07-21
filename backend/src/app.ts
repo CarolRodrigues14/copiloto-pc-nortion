@@ -4,11 +4,12 @@ import { healthRouter } from './routes/health'
 import { conversationsRouter } from './routes/conversations'
 import { chatRouter } from './routes/chat'
 import { OrchestratorTimeoutError, OrchestratorRequestError } from './lib/orchestratorClient'
+import { config } from './config'
 
 const app = express()
 
 const corsOptions = {
-  origin: 'http://localhost:5173',
+  origin: config.frontendUrl,
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }
